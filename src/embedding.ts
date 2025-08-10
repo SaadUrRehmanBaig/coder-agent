@@ -2,11 +2,12 @@ import * as vscode from 'vscode';
 import * as lancedb from '@lancedb/lancedb';
 import path from 'path';
 import ollama from 'ollama';
+import { SUPPORTED_EXTENSIONS_REGEX, SUPPORTED_GLOB_PATTERN, UNSUPPORTED_GLOB_PATTERN } from './language';
 
 const DB_PATH = `${process.env.HOME || process.env.USERPROFILE}/.local_code_embeddings`;
 const CHUNK_SIZE = 1000;
 const CHUNK_OVERLAP = 200;
-const SUPPORTED_EXTENSIONS = /\.(ts|js|py|php|vue)$/;
+const SUPPORTED_EXTENSIONS = SUPPORTED_EXTENSIONS_REGEX;
 
 let embeddingInProgress = false;
 
@@ -73,12 +74,12 @@ export async function generateEmbeddings() {
 
     const db = await lancedb.connect(DB_PATH);
     const splitter = await getSplitter();
-    const excludePatterns = '**/{node_modules,.git,dist,build,coverage,out}/**';
+    const excludePatterns = UNSUPPORTED_GLOB_PATTERN;
 
     let totalFiles = 0;
     // Count total files in all workspace folders
     for (const folder of workspaceFolders) {
-      const files = await vscode.workspace.findFiles('**/*.{ts,js,py,php,vue}', excludePatterns);
+      const files = await vscode.workspace.findFiles(SUPPORTED_GLOB_PATTERN, excludePatterns);
       totalFiles += files.length;
     }
 
@@ -95,7 +96,7 @@ export async function generateEmbeddings() {
           const projectName = path.basename(folder.uri.fsPath).replace(/[^a-zA-Z0-9_-]/g, '_');
           const table = await openOrCreateTable(db, projectName);
 
-          const files = await vscode.workspace.findFiles('**/*.{ts,js,py,php,vue}', excludePatterns);
+          const files = await vscode.workspace.findFiles(SUPPORTED_GLOB_PATTERN, excludePatterns);
 
           for (const file of files) {
             processedFiles++;
