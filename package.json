@@ -1,0 +1,72 @@
+{
+  "name": "code-agent",
+  "displayName": "code-agent",
+  "description": "A VS Code extension for project embeddings, code analysis, and task solving",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeAgent.generateEmbeddings",
+        "title": "Code Agent: Generate Project Embeddings"
+      },
+      {
+        "command": "codeAgent.askQuestion",
+        "title": "Code Agent: Ask a Question"
+      },
+      {
+        "command": "codeAgent.solveProblem",
+        "title": "Code Agent: Solve Code Problem"
+      },
+      {
+        "command": "codeAgent.runTests",
+        "title": "Code Agent: Run Tests"
+      },
+      {
+        "command": "codeAgent.generateTestCases",
+        "title": "Code Agent: Generate Test Cases"
+      }
+    ]
+  },
+  "views": {
+    "explorer": [
+      {
+        "id": "codeAgentSidebar",
+        "name": "Code Agent"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.102.0",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.32.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "^0.21.2",
+    "langchain": "^0.3.30",
+    "ollama": "^0.5.17"
+  }
+}
