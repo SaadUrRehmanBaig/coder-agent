@@ -37,7 +37,7 @@ async function openOrCreateTable(db: any, projectName: string) {
         file: 'dummy', 
         mtime: 0, 
         text: 'dummy', 
-        embedding: Array(dims).fill(0),
+        vector: Array(dims).fill(0),
       }
     ]);
     await table.delete(`id = 'dummy'`);
@@ -124,7 +124,7 @@ export async function generateEmbeddings() {
               file: file.fsPath,
               mtime: lastModified,
               text: chunk,
-              embedding: chunkEmbeddings[i],
+              vector: chunkEmbeddings[i],
             }));
 
             if (rows.length > 0) {
@@ -186,7 +186,7 @@ export async function watchForFileChanges() {
         file: filePath,
         mtime: lastModified,
         text: chunk,
-        embedding: chunkEmbeddings[i],
+        vector: chunkEmbeddings[i],
       }));
 
       if (rows.length > 0) {
