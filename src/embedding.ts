@@ -23,11 +23,24 @@ async function openOrCreateTable(db: any, projectName: string) {
   try {
     table = await db.openTable(projectName);
   } catch {
-    // Create table with dummy schema (embedding length 768)
+    // Get the embedding dimensions first by creating a dummy embedding
+    const dummyEmbedding = await ollama.embeddings({
+      model: 'nomic-embed-text',
+      prompt: 'dummy text',
+    });
+    const dims = dummyEmbedding.embedding.length;
+    
+    // Create table with proper schema
     table = await db.createTable(projectName, [
-      { id: '', file: '', mtime: 0, text: '', embedding: new Array(768).fill(0) }
+      { 
+        id: 'dummy', 
+        file: 'dummy', 
+        mtime: 0, 
+        text: 'dummy', 
+        embedding: Array(dims).fill(0),
+      }
     ]);
-    await table.delete(`id = ''`);
+    await table.delete(`id = 'dummy'`);
   }
   return table;
 }
