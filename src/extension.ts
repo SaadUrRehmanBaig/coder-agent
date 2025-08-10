@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { checkOllamaRunning } from './utils';
 import { generateEmbeddings, watchForFileChanges } from './embedding';
+import { registerAutocomplete } from './autocomplete';
 
 export async function activate(context: vscode.ExtensionContext) {
 
@@ -10,6 +11,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.showErrorMessage("Ollama is not running. Please start the Ollama server");
 		return;
 	}
+
+	// autocompletion
+	registerAutocomplete(context);
 
 	// Run on startup if workspace is open
 	if (vscode.workspace.workspaceFolders?.length) {

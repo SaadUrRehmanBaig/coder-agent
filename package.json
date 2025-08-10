@@ -14,6 +14,21 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Code Agent",
+      "properties": {
+        "codeAgent.autocomplete.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable auto-complete suggestions"
+        },
+        "codeAgent.autocomplete.contextWindow": {
+          "type": "number",
+          "default": 1000,
+          "description": "Number of characters to consider as context for completions"
+        }
+      }
+    },
     "commands": [
       {
         "command": "codeAgent.generateEmbeddings",
