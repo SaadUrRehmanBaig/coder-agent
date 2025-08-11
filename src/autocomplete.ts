@@ -1,19 +1,13 @@
 import * as vscode from 'vscode';
-import * as lancedb from '@lancedb/lancedb';
 import ollama from 'ollama';
-import path from 'path';
 import { LANGUAGE_IDS } from './language';
 import { debounce } from './utils';
 
-const DB_PATH = `${process.env.HOME || process.env.USERPROFILE}/.local_code_embeddings`;
 class CodeAgentInlineCompletionProvider implements vscode.InlineCompletionItemProvider {
-    private db: any;
     private debouncedProvide?: (document: vscode.TextDocument, position: vscode.Position, context: vscode.InlineCompletionContext, token: vscode.CancellationToken, cb: (items: vscode.InlineCompletionItem[]) => void) => void;
-    private lastResult: vscode.InlineCompletionItem[] = [];
     private running = false;
 
     constructor() {
-
         // Debounce calls with 300ms delay
         this.debouncedProvide = debounce(async (
             document: vscode.TextDocument,
@@ -24,7 +18,7 @@ class CodeAgentInlineCompletionProvider implements vscode.InlineCompletionItemPr
         ) => {
             if (this.running) {
                 // Guardrail: Skip if a previous request is still running
-                callback(this.lastResult);
+                callback([]);
                 return;
             }
 
@@ -37,10 +31,6 @@ class CodeAgentInlineCompletionProvider implements vscode.InlineCompletionItemPr
             }
 
             try {
-                if (!this.db) {
-                    this.db = await lancedb.connect(DB_PATH);
-                }
-
                 const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
                 if (!workspaceFolder) {
                     this.running = false;
@@ -48,98 +38,95 @@ class CodeAgentInlineCompletionProvider implements vscode.InlineCompletionItemPr
                     return;
                 }
 
-                const projectName = path.basename(workspaceFolder.uri.fsPath).replace(/[^a-zA-Z0-9_-]/g, '_');
-                let table: lancedb.Table;
-                try {
-                    table = await this.db.openTable(projectName);
-                } catch {
-                    this.running = false;
-                    callback([]);
-                    return;
-                }
+                const beforeLines = 30;
+                const afterLines = 5;
 
-                const contextText = document.getText(new vscode.Range(0, 0, position.line, position.character));
+                // Extract context before the cursor
+                const beforeContext = document.getText(
+                    new vscode.Range(
+                        Math.max(0, position.line - beforeLines), // Up to 30 lines before
+                        0,
+                        position.line,
+                        position.character
+                    )
+                );
+
+                // Extract context after the cursor
+                const afterContext = document.getText(
+                    new vscode.Range(
+                        position.line,
+                        position.character,
+                        Math.min(document.lineCount - 1, position.line + afterLines), // Up to 5 lines after
+                        document.lineAt(Math.min(document.lineCount - 1, position.line + afterLines)).text.length
+                    )
+                );
 
                 if (token.isCancellationRequested) {
                     this.running = false;
                     callback([]);
                     return;
                 }
-
-                const res = await ollama.embeddings({
-                    model: 'nomic-embed-text',
-                    prompt: contextText,
-                });
-
-                if (token.isCancellationRequested) {
-                    this.running = false;
-                    callback([]);
-                    return;
-                }
-
-                const results = await table.vectorSearch(res.embedding)
-                    .limit(3)
-                    .toArray();
-
-                if (results.length === 0) {
-                    this.running = false;
-                    callback([]);
-                    return;
-                }
-
-                const relevantCodeChunks = results.map(result => `
-                    // From file: ${path.basename(result.file as string)}
-                    ${result.text as string}
-                    `).join('\n\n');
                 
-                const completionPrompt = `You are an expert AI code assistant.
-                    Use the following relevant code snippets as context to complete the user's code.
+                const completionPrompt = `You are an expert AI code assistant for autocompletion.
 
-                    <context>
-                    ${relevantCodeChunks}
-                    </context>
-
-                    The user is currently writing in a file. Here is the code they have written so far:
+                    The user is currently writing in a file. Here is the code they have written so far, with the cursor position marked as <CURSOR>:
                     <file_content>
-                    ${contextText}
+                    ${beforeContext}<CURSOR>${afterContext}
                     </file_content>
 
-                    Generate the most logical and helpful completion for the user. Do not include the <file_content> in your response, only provide the code that comes next.
+                    Generate the most logical and helpful completion for the user at the <CURSOR> position. Follow these rules:
+                    1. Only provide the new code that comes after the cursor
+                    2. Do NOT repeat any code from before or after the cursor
+                    3. Do NOT include any explanations or comments
+                    4. Do NOT include <file_content> or <CURSOR> in your response
+                    5. If no completion is needed, respond with exactly "[NO_COMPLETION]"
 
                     Completion:
                 `;
-
                 const completionResponse = await ollama.generate({
-                    model: 'qwen2.5-coder:latest',
+                    model: 'qwen2.5-coder:1.5b-base',
                     prompt: completionPrompt,
                     stream: false,
                     options: {
                         temperature: 0.2,
-                        num_ctx: 4096,
                     },
                 });
 
                 let generatedText = completionResponse.response;
 
-                const trimmedText = generatedText.trim();
-                if (trimmedText.startsWith(contextText)) {
-                    generatedText = trimmedText.substring(contextText.length).trim();
-                }
-                else {
-                    generatedText = trimmedText.replace(/^```[a-zA-Z]+\n/,'').replace(/```$/,'');
-                }
-
-                if (!generatedText) {
+                if (generatedText.trim() === '[NO_COMPLETION]') {
                     this.running = false;
                     callback([]);
                     return;
                 }
 
-                const item = new vscode.InlineCompletionItem(generatedText);
-                this.lastResult = [item];
+                let completionSnippet = generatedText.trim()
+                    .replace(/^```[a-zA-Z]*\n/, '')
+                    .replace(/\n```$/, '')
+                    .trim();
+
+                completionSnippet = completionSnippet.split('\n')
+                    .filter(line => !line.includes(beforeContext) && !line.includes(afterContext))
+                    .join('\n');
+
+                completionSnippet = completionSnippet.replace(/<CURSOR>/g, '');
+
+                const currentLineText = document.lineAt(position.line).text.substring(0, position.character);
+                if (completionSnippet.startsWith(currentLineText)) {
+                    completionSnippet = completionSnippet.substring(currentLineText.length);
+                }
+
+                const finalCompletionText = completionSnippet.trim();
+                if (!finalCompletionText) {
+                    this.running = false;
+                    callback([]);
+                    return;
+                }
+
                 this.running = false;
-                callback(this.lastResult);
+                callback([new vscode.InlineCompletionItem(finalCompletionText)]);
             } catch (err) {
+                console.error(err);
                 this.running = false;
                 callback([]);
             }
