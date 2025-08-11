@@ -135,7 +135,7 @@ class CodeAgentInlineCompletionProvider implements vscode.InlineCompletionItemPr
                     return;
                 }
 
-                const item = new vscode.InlineCompletionItem(completionText);
+                const item = new vscode.InlineCompletionItem(generatedText);
                 this.lastResult = [item];
                 this.running = false;
                 callback(this.lastResult);
