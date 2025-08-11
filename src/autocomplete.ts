@@ -123,6 +123,8 @@ class CodeAgentInlineCompletionProvider implements vscode.InlineCompletionItemPr
                     return;
                 }
 
+                console.log('--- DEBUG --- \n', 'Prompt:', completionPrompt, '\n', 'Raw response:', completionResponse.response, '\n', 'Processed:', finalCompletionText, '\n', '--- END DEBUG ---');
+
                 this.running = false;
                 callback([new vscode.InlineCompletionItem(finalCompletionText)]);
             } catch (err) {
