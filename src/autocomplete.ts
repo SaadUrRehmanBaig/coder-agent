@@ -84,7 +84,7 @@ class CodeAgentInlineCompletionProvider implements vscode.InlineCompletionItemPr
                     Completion:
                 `;
                 const completionResponse = await ollama.generate({
-                    model: 'qwen2.5-coder:1.5b-base',
+                    model: 'mistral:latest',
                     prompt: completionPrompt,
                     stream: false,
                     options: {
